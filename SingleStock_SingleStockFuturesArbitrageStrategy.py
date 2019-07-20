@@ -8,6 +8,7 @@ Created on July 17 2019
 
 import os
 import time
+from typing import Dict
 from common.OrderBookSnapshot_FiveLevels import OrderBookSnapshot_FiveLevels
 from common.Strategy import Strategy
 from common.SingleStockOrder import SingleStockOrder
@@ -30,20 +31,20 @@ class SingleStock_SingleStockFuturesArbitrageStrategy(Strategy):
     def getStratDay(self):
         return self.day
 
-    def on_marketData(self, marketData):
+    def on_marketData(self, marketData: Dict[str, OrderBookSnapshot_FiveLevels]):
         # handle new market data
         singleStockOrder = SingleStockOrder('testTicker', '2019-07-05', time.asctime(time.localtime(time.time())))
         singleStockOrder.submissionTime = time.asctime(time.localtime(time.time()))
         singleStockOrder.currStatus = "New"  # "New", "Filled", "PartiallyFilled", "Cancelled"
         singleStockOrder.direction = 1
-        singleStockOrder.price = marketData.outputAsDataFrame()['askPrice1']
-        singleStockOrder.size = (self.cash > 0) * self.cash * 0.2 // singleStockOrder.price
+        singleStockOrder.price = marketData['stock'].askPrice1
+        singleStockOrder.size = self.cash * 0.2 // singleStockOrder.price
         print('*******strat size: ', singleStockOrder.size)
         singleStockOrder.type = "MO"  # "MLO", "LO", "MO", "TWAP"
 
         return singleStockOrder
 
-    def on_execution(self, execution):
+    def on_execution(self, execution: SingleStockExecution):
         # handle executions
         print('[%d] Strategy.handle_execution' % (os.getpid()))
         print('execution:', execution.outputAsArray())
