@@ -33,7 +33,7 @@ class SingleStock_SingleStockFuturesArbitrageStrategy(Strategy):
 
     def on_marketData(self, marketData: Dict[str, OrderBookSnapshot_FiveLevels]):
         # handle new market data
-        singleStockOrder = SingleStockOrder('testTicker', '2019-07-05', time.asctime(time.localtime(time.time())))
+        singleStockOrder = SingleStockOrder('stock', '2019-07-05', time.asctime(time.localtime(time.time())))
         singleStockOrder.submissionTime = time.asctime(time.localtime(time.time()))
         singleStockOrder.currStatus = "New"  # "New", "Filled", "PartiallyFilled", "Cancelled"
         singleStockOrder.direction = 1
@@ -41,12 +41,18 @@ class SingleStock_SingleStockFuturesArbitrageStrategy(Strategy):
         singleStockOrder.size = self.cash * 0.2 // singleStockOrder.price
         print('*******strat size: ', singleStockOrder.size)
         singleStockOrder.type = "MO"  # "MLO", "LO", "MO", "TWAP"
+        # TODO:: just a sample, need to add future order details
+        singleFutureOrder = singleStockOrder.copyOrder()
+        singleFutureOrder.ticker = 'future'
+        singleFutureOrder.price = marketData['future'].bidPrice1
+        singleFutureOrder.direction = singleStockOrder.direction * -1
+        return [singleStockOrder, singleFutureOrder]
 
-        return singleStockOrder
-
-    def on_execution(self, execution: SingleStockExecution):
+    def on_execution(self, executions: Dict[str, SingleStockExecution]):
         # handle executions
         print('[%d] Strategy.handle_execution' % (os.getpid()))
+        execution = executions['stock']
+        # TODO::need to handle future execution
         print('execution:', execution.outputAsArray())
 
         self.currStatusTime = execution.timeStamp
