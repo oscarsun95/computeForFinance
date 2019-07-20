@@ -24,8 +24,6 @@ class TradingPlatform:
 
         self.future_data_queue = deque(maxlen=2)
         self.execution_map = defaultdict(deque)
-        self.future_executions = []
-        self.stock_executions = []
 
         t_md = threading.Thread(name='platform.on_marketData', target=self.consume_marketData,
                                 args=(platform_2_exchSim_order_q, marketData_2_platform_q,))
@@ -66,7 +64,6 @@ class TradingPlatform:
             if execution is not None:
                 print('[%d] Platform.handle_execution' % (os.getpid()))
                 print(execution.outputAsArray())
-                # self.future_executions.append(execution)
                 self.execution_map[execution.ticker].append(execution)
                 if (len(self.execution_map['stock']) >= 1) and (len(self.execution_map['future']) >= 1):
                     paired_execution = {k: l.popleft() for k, l in self.execution_map.items()}
