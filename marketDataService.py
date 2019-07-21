@@ -32,8 +32,7 @@ class MarketDataService:
             askPrice.append(askPrice1+i*0.01)
             bidSize.append(100+random.randint(0,100)*100)
             askSize.append(100+random.randint(0,100)*100)
-        ticker_names = ['stock', 'future']
-        quoteSnapshot = OrderBookSnapshot_FiveLevels(random.choice(ticker_names), '20190706', time.asctime(time.localtime(time.time())),
+        quoteSnapshot = OrderBookSnapshot_FiveLevels('testTicker', '20190706', time.asctime(time.localtime(time.time())), 
                                                      bidPrice, askPrice, bidSize, askSize)
         print('[%d]MarketDataService>>>produce_quote' % (os.getpid()))
         print(quoteSnapshot.outputAsDataFrame())
