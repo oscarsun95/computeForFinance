@@ -2,6 +2,7 @@ import pandas as pd
 import numpy as np
 import os
 import time
+from multiprocessing import Process, Queue
 
 
 class OrderBookSnapshot_FiveLevels:
@@ -11,6 +12,9 @@ class OrderBookSnapshot_FiveLevels:
 
     def __init__(self, data):
         self.data=data
+        self.ticker = data[0]
+        self.date = data[1]
+        self.timeStamp = data[2]
         self.askPrice5, self.askPrice4, self.askPrice3, self.askPrice2, self.askPrice1 = data[3] or None, data[
             4] or None, data[5] or None, data[6] or None, data[7] or None
         self.bidPrice1, self.bidPrice2, self.bidPrice3, self.bidPrice4, self.bidPrice5 = data[8] or None, data[
@@ -84,3 +88,9 @@ class MarketDataService:
             marketData_2_exchSim_q.put(quoteSnapshot)
             marketData_2_platform_q.put(quoteSnapshot)
         self.datalist=self.datalist[1:]
+
+if __name__ == '__main__':
+
+    marketData_2_exchSim_q = Queue()
+    marketData_2_platform_q = Queue()
+    Process(name='md', target=MarketDataService, args=(marketData_2_exchSim_q, marketData_2_platform_q,)).start()
