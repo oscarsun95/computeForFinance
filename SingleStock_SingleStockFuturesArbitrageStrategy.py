@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding:utf-8 -*-
 """
-Created on July 17 2019
 
 @author: Team 4
 """
@@ -10,6 +9,7 @@ import os
 import time
 import pandas as pd
 import numpy as np
+from typing import Dict
 from common.OrderBookSnapshot_FiveLevels import OrderBookSnapshot_FiveLevels
 from common.Strategy import Strategy
 from common.SingleStockOrder import SingleStockOrder
@@ -95,8 +95,8 @@ class SingleStock_SingleStockFuturesArbitrageStrategy(Strategy):
             
     def getStratDay(self):
         return self.day
-    
-    def on_marketData(self, marketData):
+
+    def on_marketData(self, marketData: Dict[str, OrderBookSnapshot_FiveLevels]):
 
         ticker0Bid1 = marketData[self.ticker[0]].outputAsDataFrame()['bidPrice1'].iat[0]
         ticker0Ask1 = marketData[self.ticker[0]].outputAsDataFrame()['askPrice1'].iat[0]
@@ -110,10 +110,6 @@ class SingleStock_SingleStockFuturesArbitrageStrategy(Strategy):
         thresholdOpen = 0.015
         thresholdClose = 0.0001
         sizePair = 1000
-
-        
-        # test submit order
-        cash = self.bookRecords['cash'].iat[-1]
         
         print('>>>>>>>>>>>>log(Pf/Ps) ', relativeReturn)
         
@@ -161,14 +157,14 @@ class SingleStock_SingleStockFuturesArbitrageStrategy(Strategy):
             self.spreadPosition = 0
             return [singleStockOrder0, singleStockOrder1]
             
-    def on_execution(self, execution):
+    def on_execution(self, executions: Dict[str, SingleStockExecution]):
         #handle executions
         print('[%d] Strategy.handle_execution' % (os.getpid()))
-        print('execution 0: ' ,execution[self.ticker[0]].outputAsArray())
-        print('execution 1: ' ,execution[self.ticker[1]].outputAsArray())
+        print('execution 0: ' ,executions[self.ticker[0]].outputAsArray())
+        print('execution 1: ' ,executions[self.ticker[1]].outputAsArray())
 
-        if (execution[self.ticker[0]].size not in [None, 0]) or (execution[self.ticker[1]].size not in [None, 0]):
-            self.updateBookRecoreds(execution)
+        if (executions[self.ticker[0]].size not in [None, 0]) or (executions[self.ticker[1]].size not in [None, 0]):
+            self.updateBookRecoreds(executions)
         
 
                 
