@@ -17,7 +17,7 @@ from common.SingleStockExecution import SingleStockExecution
 
 class ExchangeSimulator:
     
-    def __init__(self, marketData_2_exchSim_q, platform_2_exchSim_order_q, exchSim_2_platform_execution_q):
+    def __init__(self, marketData_2_exchSim_q, platform_2_exchSim_order_q, exchSim_2_platform_execution_q,limitOrderMode = False, easyExecutionMode = True):
         print("[%d]<<<<< call ExchSim.init" % (os.getpid(),))
         
         t_md = threading.Thread(name='exchsim.on_md', target=self.consume_md, args=(marketData_2_exchSim_q,exchSim_2_platform_execution_q,))
@@ -42,10 +42,15 @@ class ExchangeSimulator:
         ######################################################
         ######################################################
         #Codes for limit order (part 1/3)
-        self.LimitOrderFlag = True
+        self.LimitOrderFlag = False
         self.LimitOrderBook = {}
         self.LimitOrderBookTickerRecord = []
         ######################################################
+        if limitOrderMode:
+            self.LimitOrderFlag = True
+        if easyExecutionMode:
+            self.Flag_EasyExecution = True
+        
 
     def consume_md(self, marketData_2_exchSim_q,exchSim_2_platform_execution_q):
         while True:
