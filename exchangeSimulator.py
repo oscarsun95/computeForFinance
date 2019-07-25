@@ -20,7 +20,7 @@ class ExchangeSimulator:
     def __init__(self, marketData_2_exchSim_q, platform_2_exchSim_order_q, exchSim_2_platform_execution_q):
         print("[%d]<<<<< call ExchSim.init" % (os.getpid(),))
         
-        t_md = threading.Thread(name='exchsim.on_md', target=self.consume_md, args=(marketData_2_exchSim_q,))
+        t_md = threading.Thread(name='exchsim.on_md', target=self.consume_md, args=(marketData_2_exchSim_q,exchSim_2_platform_execution_q,))
         t_md.start()
         
         t_order = threading.Thread(name='exchsim.on_order', target=self.consume_order, args=(platform_2_exchSim_order_q, exchSim_2_platform_execution_q, ))
@@ -40,10 +40,14 @@ class ExchangeSimulator:
         self.ExecRecordColumn = ['Date', 'Ticker', 'timeStamp', 'execID', 'OrderID', 'direction', 'price', 'size', 'common']
         self.ExecRecord = pd.DataFrame(columns=self.ExecRecordColumn)
         ######################################################
+        ######################################################
+        #Codes for limit order (part 1/3)
+        self.LimitOrderFlag = True
+        self.LimitOrderBook = {}
+        self.LimitOrderBookTickerRecord = []
+        ######################################################
 
-
-
-    def consume_md(self, marketData_2_exchSim_q):
+    def consume_md(self, marketData_2_exchSim_q,exchSim_2_platform_execution_q):
         while True:
             res = marketData_2_exchSim_q.get()
             print('[%d]ExchSim.consume_md' % (os.getpid()))
@@ -78,36 +82,126 @@ class ExchangeSimulator:
                 self.OrderBookCurrent[ticker] = res.outputAsDataFrame().copy(deep=True)
                 
                 
-                
-#            #update orderbook
-#            if self.Flag_KeepAllQuotes:
-#                if self.OrderBookIsEmpty:
-#                    self.OrderBook = res.outputAsDataFrame().copy(deep=True)
-#                    self.OrderBookIsEmpty = False
-#                else:
-#                    self.OrderBook = pd.concat([self.OrderBook,res.outputAsDataFrame()])
-#                    self.OrderBook.reset_index(drop=True,inplace=True)
-#            
-#            #update orderbook_20
-#            if self.OrderBook20IsEmpty:
-#                self.OrderBook_20 = res.outputAsDataFrame().copy(deep=True)
-#                self.OrderBook20IsEmpty = False
-#            else:
-#                if len(self.OrderBook_20) == 20:
-#                    self.OrderBook_20.drop(index=[0], inplace=True)
-#                self.OrderBook_20 = pd.concat([self.OrderBook_20,res.outputAsDataFrame()])
-#                self.OrderBook_20.reset_index(drop=True,inplace=True)
-#                
-#            #update orderbookcurrent
-#            self.OrderBookCurrent = res.outputAsDataFrame().copy(deep=True)
+            ######################################################
+            #Codes for limit order (part 2/3)
+            if self.LimitOrderFlag:
+                Ticker_ = "B" + ticker
+                if Ticker_ in self.LimitOrderBookTickerRecord:
+                    self.crossTwoOrderBook(Ticker_,exchSim_2_platform_execution_q,initiator="Market")
+                    
+                Ticker_ = "S" + ticker
+                if Ticker_ in self.LimitOrderBookTickerRecord:
+                    self.crossTwoOrderBook(Ticker_,exchSim_2_platform_execution_q,initiator="Market")
+
             
             
+            
+            
+#-------------------------------------------------------------------------------
+#Codes for supporting LO (part 3/3)
+    def comsume_limit_order(self, order, exchSim_2_platform_execution_q):
+        # deal with limit order
+        # get the info of the order
+        ticker = order.ticker
+        direction = order.direction
+        if direction > 0:
+            Ticker_ = "B"+ticker
+        else:
+            Ticker_ = "S"+ticker
+        price = order.price
+        submissionTime = order.submissionTime
+        
+        
+        
+        # determine whether the limit orderbook orginally exist
+        if Ticker_ in self.LimitOrderBookTickerRecord:
+            if price in self.LimitOrderBook[Ticker_].keys():
+                self.LimitOrderBook[Ticker_][price].append(order)
+            else:
+                self.LimitOrderBook[Ticker_][price] = [order]
+        else:
+            self.LimitOrderBookTickerRecord.append(Ticker_)
+            self.LimitOrderBook[Ticker_] = {price:[order]}
+        
+        # cross the two order book
+        self.crossTwoOrderBook(Ticker_, exchSim_2_platform_execution_q, initiator = "NotMarket")
+
+
+
+    def crossTwoOrderBook(self, Ticker_, exchSim_2_platform_execution_q, initiator = "Market"):
+        # cross the particular orderbook and our own orderbook
+        ticker = Ticker_[1:]
+        lowestMarketSellPrice = self.OrderBookCurrent[ticker]['askPrice1'].iloc[0]
+        highestMarketBuyPrice = self.OrderBookCurrent[ticker]['bidPrice1'].iloc[0]
+        if Ticker_[0] == "B":
+            prices = list(self.LimitOrderBook[Ticker_].keys())
+            for price in prices:
+                if price >= lowestMarketSellPrice:
+                    for order_ in self.LimitOrderBook[Ticker_][price]:
+                        if initiator == "Market":
+                            execPrice = price
+                        else:
+                            execPrice = lowestMarketSellPrice
+                        self.produce_execution_limit_order(order_, execPrice, exchSim_2_platform_execution_q)
+                    self.LimitOrderBook[Ticker_].pop(price)
+                    
+        if Ticker_[0] == "S":
+            prices = list(self.LimitOrderBook[Ticker_].keys())
+            for price in prices:
+                if price <= highestMarketBuyPrice:
+                    for order_ in self.LimitOrderBook[Ticker_][price]:
+                        if initiator == "Market":
+                            execPrice = price
+                        else:
+                            execPrice = highestMarketBuyPrice
+                        self.produce_execution_limit_order(order_, execPrice, exchSim_2_platform_execution_q)
+                    self.LimitOrderBook[Ticker_].pop(price)
+                    
+        if len(self.LimitOrderBook[Ticker_])== 0:
+            self.LimitOrderBook.pop(Ticker_)
+            self.LimitOrderBookTickerRecord.remove(Ticker_)
+            
+            
+            
+    def produce_execution_limit_order(self, order, execPrice, exchSim_2_platform_execution_q):
+        execution = SingleStockExecution(order.ticker,order.date, time.asctime(time.localtime(time.time())))
+        execution.orderID = order.orderID
+        
+        if len(self.ExecRecord) == 0:
+            execution.execID = str(order.date + order.ticker + '000000')
+        else:
+            execution.execID = str(order.date + order.ticker + '%06d' % len(self.ExecRecord))
+
+        execution.direction = order.direction
+        execution.size = order.size
+        execution.price = execPrice
+        
+        
+        tempList=execution.outputAsArray()
+        tempList[3]=execution.execID
+        tempDf=pd.DataFrame([tempList], columns=self.ExecRecordColumn)
+        self.ExecRecord=self.ExecRecord.append(tempDf,ignore_index=True)
+        
+        exchSim_2_platform_execution_q.put(execution)
+        print('[%d]ExchSim.produce_execution' % (os.getpid()))
+        print(execution.outputAsArray())
+
+
+#-------------------------------------------------------------------------------
+
     def consume_order(self, platform_2_exchSim_order_q, exchSim_2_platform_execution_q):
         while True:
             res = platform_2_exchSim_order_q.get()
             print('[%d]ExchSim.on_order' % (os.getpid()))
             print(res.outputAsArray())
-            self.produce_execution(res, exchSim_2_platform_execution_q)
+            
+            if self.LimitOrderFlag:
+                if res.type == "LO":
+                    self.comsume_limit_order(res, exchSim_2_platform_execution_q)
+                else:
+                    self.produce_execution(res, exchSim_2_platform_execution_q)
+            else:
+                self.produce_execution(res, exchSim_2_platform_execution_q)
     
     def produce_execution(self, order, exchSim_2_platform_execution_q):
         # In this step, we need to create an instance of SingleStockExecution regarding to the current orderbook and the order
