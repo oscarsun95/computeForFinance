@@ -42,7 +42,6 @@ class TradingPlatform:
             print(book_snap.outputAsDataFrame())
             if book_snap.ticker == self.tickers[1]:
                 self.future_data_queue.append(book_snap)
-            # result = self.ssfArbStrat.run(book_snap, None)
             elif (book_snap.ticker == self.tickers[0]) and (len(self.future_data_queue) != 0):
 
                 future_book_snap = self.future_data_queue.pop()
@@ -69,4 +68,3 @@ class TradingPlatform:
                 if (len(self.execution_map[self.tickers[0]]) >= 1) and (len(self.execution_map[self.tickers[1]]) >= 1):
                     paired_execution = {k: l.popleft() for k, l in self.execution_map.items()}
                     self.ssfArbStrat.on_execution(paired_execution)
-                # self.ssfArbStrat.run(None, execution)
