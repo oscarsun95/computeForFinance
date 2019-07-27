@@ -15,15 +15,14 @@ from common.Strategy import Strategy
 from common.SingleStockOrder import SingleStockOrder
 from common.SingleStockExecution import SingleStockExecution
 
-class SingleStock_SingleStockFuturesArbitrageStrategy(Strategy):
-    
 
-    
+class SingleStock_SingleStockFuturesArbitrageStrategy(Strategy):
+
     def __init__(self, stratID, stratName, stratAuthor, ticker, day):
         super(SingleStock_SingleStockFuturesArbitrageStrategy, 
-                          self).__init__(stratID, stratName, stratAuthor) #call constructor of parent
-        self.ticker = ['2330', 'CDFD9'] #ticker #public field # list
-        self.day = day #public field
+                          self).__init__(stratID, stratName, stratAuthor)  # call constructor of parent
+        self.ticker = ticker  # public field # list
+        self.day = day  # public field
         self.initialStatusTime = time.asctime(time.localtime(time.time()))
         self.initialCash = 2000.0
         self.bookRecordsCol = ['day', 'currStatusTime', 'cash',

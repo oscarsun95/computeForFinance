@@ -19,8 +19,9 @@ class TradingPlatform:
         print("[%d]<<<<< call Platform.init" % (os.getpid(),))
         
         # Instantiate individual strategies
+        self.tickers = ['2330', 'CDFD9']  #[stock, future]
         self.ssfArbStrat = SingleStock_SingleStockFuturesArbitrageStrategy(
-            "tf_1", "singleStock_singleStockFuturesArbStrategy", "hongsongchou", "2330", "20190706")
+            "tf_1", "singleStock_singleStockFuturesArbStrategy", "hongsongchou", self.tickers, "20190706")
 
         self.future_data_queue = deque(maxlen=2)
         self.execution_map = defaultdict(deque)
@@ -39,15 +40,15 @@ class TradingPlatform:
             book_snap = marketData_2_platform_q.get()
             print('[%d] Platform.on_md' % (os.getpid()))
             print(book_snap.outputAsDataFrame())
-            if book_snap.ticker == 'future':
+            if book_snap.ticker == self.tickers[1]:
                 self.future_data_queue.append(book_snap)
             # result = self.ssfArbStrat.run(book_snap, None)
-            elif (book_snap.ticker == 'stock') and (len(self.future_data_queue) != 0):
+            elif (book_snap.ticker == self.tickers[0]) and (len(self.future_data_queue) != 0):
 
                 future_book_snap = self.future_data_queue.pop()
                 paired_book_snapshot = {
-                    'stock': book_snap,
-                    'future': future_book_snap
+                    self.tickers[0]: book_snap,
+                    self.tickers[1]: future_book_snap
                 }
                 orders_list = self.ssfArbStrat.on_marketData(paired_book_snapshot)
                 if orders_list is not None:
@@ -65,7 +66,7 @@ class TradingPlatform:
                 print('[%d] Platform.handle_execution' % (os.getpid()))
                 print(execution.outputAsArray())
                 self.execution_map[execution.ticker].append(execution)
-                if (len(self.execution_map['stock']) >= 1) and (len(self.execution_map['future']) >= 1):
+                if (len(self.execution_map[self.tickers[0]]) >= 1) and (len(self.execution_map[self.tickers[1]]) >= 1):
                     paired_execution = {k: l.popleft() for k, l in self.execution_map.items()}
                     self.ssfArbStrat.on_execution(paired_execution)
                 # self.ssfArbStrat.run(None, execution)
