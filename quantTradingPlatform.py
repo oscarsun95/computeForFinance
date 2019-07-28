@@ -23,7 +23,7 @@ class TradingPlatform:
         self.ssfArbStrat = SingleStock_SingleStockFuturesArbitrageStrategy(
             "tf_1", "singleStock_singleStockFuturesArbStrategy", "hongsongchou", self.tickers, "20190706")
 
-        self.future_data_queue = deque(maxlen=2)
+        self.last_stock_book_snap = None
         self.execution_map = defaultdict(deque)
 
         t_md = threading.Thread(name='platform.on_marketData', target=self.consume_marketData,
@@ -40,14 +40,14 @@ class TradingPlatform:
             book_snap = marketData_2_platform_q.get()
             print('[%d] Platform.on_md' % (os.getpid()))
             print(book_snap.outputAsDataFrame())
-            if book_snap.ticker == self.tickers[1]:
-                self.future_data_queue.append(book_snap)
-            elif (book_snap.ticker == self.tickers[0]) and (len(self.future_data_queue) != 0):
+            if book_snap.ticker == self.tickers[0]:
+                self.last_stock_book_snap = book_snap
+            elif (book_snap.ticker == self.tickers[1]) and (self.last_stock_book_snap is not None):
 
-                future_book_snap = self.future_data_queue.pop()
+                stock_book_snap = self.last_stock_book_snap
                 paired_book_snapshot = {
-                    self.tickers[0]: book_snap,
-                    self.tickers[1]: future_book_snap
+                    self.tickers[0]: stock_book_snap,
+                    self.tickers[1]: book_snap
                 }
                 orders_list = self.ssfArbStrat.on_marketData(paired_book_snapshot)
                 if orders_list is not None:
