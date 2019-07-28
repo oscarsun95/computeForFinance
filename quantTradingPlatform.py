@@ -24,6 +24,7 @@ class TradingPlatform:
             "tf_1", "singleStock_singleStockFuturesArbStrategy", "hongsongchou", self.tickers, "20190706")
 
         self.last_stock_book_snap = None
+        self.last_future_book_snap = None
         self.execution_map = defaultdict(deque)
 
         t_md = threading.Thread(name='platform.on_marketData', target=self.consume_marketData,
@@ -42,12 +43,12 @@ class TradingPlatform:
             print(book_snap.outputAsDataFrame())
             if book_snap.ticker == self.tickers[0]:
                 self.last_stock_book_snap = book_snap
-            elif (book_snap.ticker == self.tickers[1]) and (self.last_stock_book_snap is not None):
-
-                stock_book_snap = self.last_stock_book_snap
+            elif book_snap.ticker == self.tickers[1]:
+                self.last_future_book_snap = book_snap
+            if (self.last_stock_book_snap is not None) and (self.last_future_book_snap is not None):
                 paired_book_snapshot = {
-                    self.tickers[0]: stock_book_snap,
-                    self.tickers[1]: book_snap
+                    self.tickers[0]: self.last_stock_book_snap,
+                    self.tickers[1]: self.last_future_book_snap
                 }
                 orders_list = self.ssfArbStrat.on_marketData(paired_book_snapshot)
                 if orders_list is not None:
@@ -65,6 +66,7 @@ class TradingPlatform:
                 print('[%d] Platform.handle_execution' % (os.getpid()))
                 print(execution.outputAsArray())
                 self.execution_map[execution.ticker].append(execution)
-                if (len(self.execution_map[self.tickers[0]]) >= 1) and (len(self.execution_map[self.tickers[1]]) >= 1):
+                if (len(self.execution_map[self.tickers[0]]) >= 1) and (
+                        len(self.execution_map[self.tickers[1]]) >= 1):
                     paired_execution = {k: l.popleft() for k, l in self.execution_map.items()}
                     self.ssfArbStrat.on_execution(paired_execution)
